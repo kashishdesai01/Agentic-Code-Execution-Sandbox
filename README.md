@@ -292,19 +292,3 @@ The React UI streams agent reasoning in real-time:
 
 ---
 
-## Design Decisions
-
-**Why Docker and not just subprocess?**  
-Subprocess isolation is insufficient — a script can still read host environment variables, make network calls, and consume unbounded memory. Docker provides real namespace isolation, network control, and resource caps with one flag each. The container is destroyed after every run (`--rm`).
-
-**Why Redis pub/sub for SSE instead of LangGraph streaming?**  
-LangGraph's `.astream()` works at the graph level. Wiring that cleanly to HTTP SSE — especially across retry cycles — adds complexity. Redis pub/sub decouples graph execution from the HTTP layer: each node publishes a progress event, the SSE endpoint just subscribes. This also makes horizontal scaling possible later.
-
-**Why Redis and not a vector DB for memory?**  
-For session memory, recency and exact session identity matter more than semantic similarity. Redis TTL-keyed storage is simpler, faster, and operationally lighter. Cross-session semantic retrieval (find tasks similar to the current one across all users) would be a natural addition with pgvector.
-
-**Why `langchain-anthropic` with `with_structured_output` instead of the raw Anthropic SDK?**  
-It uses Claude's native tool-use to produce JSON conforming to a Pydantic schema, eliminating manual JSON parsing and validation. The planner and reflector always return typed `TaskPlan` and `ReflectorDecision` objects — no regex, no try/except JSON parsing.
-
-**Why is the syntax retry inside the node and not a graph edge?**  
-The code generator gets at most one internal syntax-fix pass before returning. Keeping this inside the node preserves the graph's clean topology — only the Reflector's retry uses a graph edge. The graph edge retry is bounded by `MAX_RETRIES`; the syntax retry is bounded by the node itself.
